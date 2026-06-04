@@ -1,123 +1,112 @@
 <!DOCTYPE html>
+
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-<title>制動距離シミュレーター</title>
-
+<title>制動距離シミュレーター Ver5</title>
 <style>
-body{
-    font-family: "Yu Gothic", sans-serif;
-    margin:20px;
-    text-align:center;
-    background:#f5f5f5;
+body{font-family:"Yu Gothic",sans-serif;background:#f5f5f5;text-align:center;margin:20px}
+.control{margin:10px}
+button,input,select{font-size:1.1rem;padding:8px}
+
+#viewport{
+width:95%;
+max-width:1000px;
+height:220px;
+margin:20px auto;
+border:3px solid #444;
+overflow-x:auto;
+overflow-y:hidden;
+background:#ddd;
 }
 
-h1{
-    margin-bottom:20px;
-}
-
-.control{
-    margin:12px;
-}
-
-label{
-    font-weight:bold;
-}
-
-input, select{
-    font-size:1.1rem;
-    padding:6px;
-}
-
-button{
-    font-size:1.2rem;
-    padding:10px 20px;
-    cursor:pointer;
+#world{
+position:relative;
+width:14000px;
+height:200px;
 }
 
 #road{
-    width:900px;
-    max-width:95%;
-    height:120px;
-    margin:30px auto;
-    border:3px solid #444;
-    background:#ddd;
-    position:relative;
-    overflow:hidden;
+position:absolute;
+top:110px;
+left:0;
+width:14000px;
+border-top:6px dashed #666;
 }
 
 #car{
-    position:absolute;
-    left:0px;
-    bottom:20px;
-    font-size:50px;
+position:absolute;
+left:40px;
+top:50px;
+font-size:60px;
 }
 
-#finish{
-    position:absolute;
-    right:5px;
-    top:0;
-    height:100%;
-    display:flex;
-    align-items:center;
-    font-size:40px;
+.flag{
+position:absolute;
+top:15px;
+transform:translateX(-50%);
+text-align:center;
+font-size:16px;
+font-weight:bold;
 }
 
 #result{
-    margin-top:20px;
-    font-size:1.5rem;
-    font-weight:bold;
+font-size:1.3rem;
+font-weight:bold;
+margin-top:10px;
 }
 
 table{
-    margin:20px auto;
-    border-collapse:collapse;
+margin:20px auto;
+border-collapse:collapse;
+background:white;
 }
 
 th,td{
-    border:1px solid #888;
-    padding:8px 15px;
-    background:white;
+border:1px solid #888;
+padding:8px 15px;
 }
-</style>
-</head>
 
+th{
+background:#efefef;
+} </style>
+
+</head>
 <body>
 
-<h1>🚗 制動距離シミュレーター</h1>
+<h1>🚗 制動距離シミュレーター Ver5</h1>
 
 <div class="control">
-<label>速度 (km/h)</label>
+速度(km/h)
 <input type="number" id="speed" value="40" min="10" max="100">
 </div>
 
 <div class="control">
-<label>路面状態</label>
+路面
 <select id="surface">
-<option value="0.01">乾燥</option>
-<option value="0.015">濡れ</option>
-<option value="0.03">雪道</option>
-<option value="0.06">凍結路</option>
+<option value="0.005">乾燥</option>
+<option value="0.0075">濡れ</option>
+<option value="0.015">雪道</option>
+<option value="0.03">凍結路</option>
 </select>
 </div>
 
 <div class="control">
-<button onclick="startSimulation()">スタート</button>
+<button id="startBtn" onclick="startSimulation()">スタート</button>
+<button onclick="resetAll()">リセット</button>
 </div>
 
-<div id="road">
-<div id="car">🚗</div>
-<div id="finish">🏁</div>
+<div id="viewport">
+ <div id="world">
+   <div id="road"></div>
+   <div id="car">🚗</div>
+ </div>
 </div>
 
-<div id="result">
-速度：40 km/h<br>
-制動距離：16.0 m
-</div>
+<div id="result">速度を設定してスタートしてください</div>
 
-<h2>記録</h2>
+<h2>実験記録</h2>
 
 <table>
 <thead>
@@ -132,130 +121,121 @@ th,td{
 </table>
 
 <script>
-
 let running = false;
+let timer = null;
 
 function startSimulation(){
 
-    if(running) return;
+ if(running) return;
 
-    running = true;
+ running = true;
+ document.getElementById("startBtn").disabled = true;
 
-    const speed =
-        Number(document.getElementById("speed").value);
+ const speed = Number(document.getElementById("speed").value);
+ const k = Number(document.getElementById("surface").value);
 
-    const k =
-        Number(document.getElementById("surface").value);
+ const surface =
+ document.getElementById("surface")
+ .options[document.getElementById("surface").selectedIndex].text;
 
-    const surfaceText =
-        document.getElementById("surface")
-        .options[
-            document.getElementById("surface").selectedIndex
-        ].text;
+ const distance = k * speed * speed;
 
-    const distance =
-        k * speed * speed;
+ const scale = 18;
+ const target = 40 + distance * scale;
 
-    const car =
-        document.getElementById("car");
+ const car = document.getElementById("car");
 
-    const road =
-        document.getElementById("road");
+ let pos = 40;
+ let velocity = Math.max(speed / 12, 0.8);
 
-    const roadWidth =
-        road.clientWidth;
+ car.style.left = "40px";
 
-    car.style.left = "0px";
+ timer = setInterval(()=>{
 
-    const maxDistance =
-        600;
+   pos += velocity;
 
-    const target =
-        Math.min(
-            (distance / maxDistance) *
-            (roadWidth - 80),
-            roadWidth - 80
-        );
+   if(pos > target){
+      pos = target;
+   }
 
-    let pos = 0;
+   velocity *= 0.995;
 
-    let velocity =
-        Math.max(speed / 10, 1);
+   car.style.left = pos + "px";
 
-    const timer =
-        setInterval(() => {
+   if(pos >= target){
 
-            pos += velocity;
+      clearInterval(timer);
 
-            velocity *= 0.985;
+      addFlag(target,speed,distance);
 
-            car.style.left =
-                pos + "px";
+      addHistory(speed,surface,distance);
 
-            if(pos >= target ||
-               velocity < 0.2){
+      document.getElementById("result").innerHTML =
+      `速度：${speed} km/h<br>
+       路面：${surface}<br>
+       制動距離：${distance.toFixed(1)} m`;
 
-                clearInterval(timer);
+      setTimeout(()=>{
+          car.style.left = "40px";
+          running = false;
+          document.getElementById("startBtn").disabled = false;
+      },800);
+   }
 
-                car.style.left =
-                    target + "px";
-
-                document.getElementById("result")
-                .innerHTML =
-                    `速度：${speed} km/h<br>
-                     路面：${surfaceText}<br>
-                     制動距離：${distance.toFixed(1)} m`;
-
-                addHistory(
-                    speed,
-                    surfaceText,
-                    distance.toFixed(1)
-                );
-
-                running = false;
-            }
-
-        },20);
+ },20);
 }
 
-function addHistory(
-    speed,
-    surface,
-    distance
-){
+function addFlag(x,speed,distance){
 
-    const row =
-        document.createElement("tr");
+ const flag = document.createElement("div");
 
-    row.innerHTML =
-        `<td>${speed}</td>
-         <td>${surface}</td>
-         <td>${distance}</td>`;
+ flag.className = "flag";
 
-    document
-        .getElementById("history")
-        .appendChild(row);
+ flag.style.left = x + "px";
+
+ flag.innerHTML =
+ `🏁<br>${speed}km/h<br>${distance.toFixed(0)}m`;
+
+ document.getElementById("world").appendChild(flag);
 }
 
+function addHistory(speed,surface,distance){
 
-// ダブルタップ拡大抑制
-let lastTouchEnd = 0;
+ const row = document.createElement("tr");
 
-document.addEventListener(
-'touchend',
-function(event){
+ row.innerHTML =
+ `
+ <td>${speed}</td>
+ <td>${surface}</td>
+ <td>${distance.toFixed(1)}</td>
+ `;
 
-    const now = Date.now();
+ document.getElementById("history").appendChild(row);
+}
 
-    if(now - lastTouchEnd <= 300){
-        event.preventDefault();
-    }
+function resetAll(){
 
-    lastTouchEnd = now;
+ if(timer){
+   clearInterval(timer);
+ }
 
-}, false);
+ running = false;
 
+ document.getElementById("startBtn").disabled = false;
+
+ document.querySelectorAll(".flag").forEach(f=>f.remove());
+
+ document.getElementById("history").innerHTML = "";
+
+ document.getElementById("car").style.left = "40px";
+
+ document.getElementById("viewport").scrollLeft = 0;
+
+ document.getElementById("result").innerHTML =
+ "速度を設定してスタートしてください";
+}
 </script>
 
 </body>
 </html>
+
